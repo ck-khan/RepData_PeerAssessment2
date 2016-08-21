@@ -1,0 +1,235 @@
+---
+title: 'Tornadoes, Flood and Hurricanes: Severe weather event types with the largest human and economic consequences (based on an initial analysis of the NOAA storm database).'
+author: "ckkhan@gmail.com"
+date: "21 August 2016"
+output: 
+  html_document: 
+    keep_md: yes
+---
+
+```{r setup, include=FALSE}
+library(dplyr)
+#library(knitr)
+library(reshape)
+library(ggplot2)
+knitr::opts_chunk$set(echo = TRUE)
+#setwd(paste(getwd(),"/repos/RepData_PeerAssessment2",sep=""))
+```
+
+***
+
+## Synopsis
+
+Looking through more than 6 decades of recorded weather events in the USA, the three severe weather event types (Tornadoes, Flood and Hurricanes) has had the largest negative impact on human lives and the economy. This is the preliminary finding of analysis being performed on the U.S. National Oceanic and Atmospheric Administration's (NOAA) storm database.
+
+This effort is by no means an easy task as the volume of data is large and its collection was not always performed in a standard manner. After loading, processing, standardizing, consolidating the data, the different types of severe weather event types were ranked in order of highest negative impact from the perspectives of human fatalities, injuries as well as property and agriculture damage/losses.
+
+The following sections detail out the steps taken to prepare the STORM database data set as well as the results and initial findings.
+
+***
+
+## Data Processing
+
+1. Retrieve a fresh copy of the data set, if missing
+    ```{r getdata, echo=TRUE}
+        url<-"https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2"
+        zfn<-"StormData.csv.bz2"
+        if(!file.exists(zfn)) {
+            download.file(url, zfn, mode="wb")
+        }
+    ```
+
+2. Load data into R and keep only the subset of variables of interest (assumed to be needed to produce answers to the 2 specific questions).
+    ```{r readnsubdata, echo=TRUE, cache=TRUE}
+        stormdata<-read.csv(zfn)[c("EVTYPE", "FATALITIES", "INJURIES", "PROPDMG", "PROPDMGEXP", "CROPDMG", "CROPDMGEXP")]
+    ```
+
+3. Inspect the structure & summary of the resulting data.
+    ```{r exploredata1, echo=TRUE}
+        str(stormdata)
+        summary(stormdata)
+    ```
+The factors (EVTYPE, PROPDMGEXP and CROPDMGEXP) seem to have many more levels than expected or described in the NWS documentation. Quantities/measures seem small generally which suggests wide spread use of the exponential variables.
+
+4. Remove data records having no Fatalities, Injuries, Property and Crop Damage as these are assumed to be irrelevant to the 2 specific questions to be addressed. This also reduces size of the data set to be handled significantly. Refactor the factors to remove unused levels.
+    ```{r filterdata, echo=TRUE}
+        stormdata<-stormdata[(stormdata$PROPDMG!=0 | stormdata$CROPDMG!=0 | stormdata$FATALITIES!=0 | stormdata$INJURIES!=0),]
+        stormdata$EVTYPE<-factor(stormdata$EVTYPE, levels=unique(stormdata$EVTYPE))
+        stormdata$PROPDMGEXP<-factor(stormdata$PROPDMGEXP, levels=unique(stormdata$PROPDMGEXP))
+        stormdata$CROPDMGEXP<-factor(stormdata$CROPDMGEXP, levels=unique(stormdata$CROPDMGEXP))
+        nrow(stormdata)
+    ```
+A lot less data to deal with.
+
+5. Examine the unique exponentials.
+    ```{r examexponentials, echo=TRUE}
+        unique(stormdata$PROPDMGEXP)
+        unique(stormdata$CROPDMGEXP)
+    ```
+Multiply the Property and Crop Damage by its exponentials (of 10). Valid alphabetic abbreviations are H, K, M and B (case insensitive). Integer values (converted via as.integer) are assumed to mean the actual exponents of 10 (up to 12). Other values are assigned a multiplier of 1.
+    ```{r exponentials, echo=TRUE}
+        options(warn=-1)
+        stormdata$PROPDMG<-stormdata$PROPDMG *
+            ifelse(stormdata$PROPDMGEXP %in% c("h","H"), 10^2,
+            ifelse(stormdata$PROPDMGEXP %in% c("k","K"), 10^3,
+            ifelse(stormdata$PROPDMGEXP %in% c("m","M"), 10^6,
+            ifelse(stormdata$PROPDMGEXP %in% c("b","B"), 10^9,
+            ifelse(as.integer(as.character(stormdata$PROPDMGEXP)) %in% 1:12, 10^as.integer(as.character(stormdata$PROPDMGEXP)),
+            1)))))
+        stormdata$CROPDMG<-stormdata$CROPDMG *
+            ifelse(stormdata$CROPDMGEXP %in% c("h","H"), 10^2,
+            ifelse(stormdata$CROPDMGEXP %in% c("k","K"), 10^3,
+            ifelse(stormdata$CROPDMGEXP %in% c("m","M"), 10^6,
+            ifelse(stormdata$CROPDMGEXP %in% c("b","B"), 10^9,
+            ifelse(as.integer(as.character(stormdata$CROPDMGEXP)) %in% 1:12, 10^as.integer(as.character(stormdata$CROPDMGEXP)),
+            1)))))
+        options(warn=0)
+    ```
+
+6. Summary of the Property and Crop Damage after application of multipliers.
+    ```{r exploredata2, echo=TRUE}
+        summary(stormdata$PROPDMG)
+        summary(stormdata$CROPDMG)
+    ```
+7. Examine the unique ENTYPE values.
+    ```{r evtype, echo=TRUE}
+        unique(stormdata$EVTYPE)
+    ```
+The remaining EVTYPE levels (488) are not easily mapped to the 48 types defined in the NWS documentation without resorting to guess work. For the sake of simplicity, this analysis will assume that each of the EVTYPES are unique and will focus on EVTYPES where its composition to the overall amount totals are small or insignificant.
+
+8. Sum and sort (descending) the quantities of Human Fatalities and Injuries by EVTYPE, display the top 10.
+    ```{r humandmg, echo=TRUE}
+        humandmg<-aggregate(cbind(FATALITIES, INJURIES) ~ EVTYPE, stormdata, sum)
+        humandmg$FATALITIESPCT<-humandmg$FATALITIES/sum(humandmg$FATALITIES)*100
+        humandmg$INJURIESPCT<-humandmg$INJURIES/sum(humandmg$INJURIES)*100
+        humandmg<-humandmg[order(-humandmg$FATALITIES),]
+
+        head(humandmg,10)
+        sum(head(humandmg[order(-humandmg$FATALITIES),],10)$FATALITIESPCT)
+
+        head(humandmg[order(-humandmg$INJURIES),],10)
+        sum(head(humandmg[order(-humandmg$INJURIES),],10)$INJURIESPCT)
+    ```
+The top 10 constitutes roughly 80% (Fatalities) to 90% (Injuries) of its corresponding total.
+
+9. Sum and sort (descending) the quantities of Property and Crop Damage by EVTYPE, display the top 10.
+    ```{r econdmg, echo=TRUE}
+        econdmg<-aggregate(cbind(PROPDMG, CROPDMG) ~ EVTYPE, stormdata, sum)
+        econdmg$ECONDMGTOT<-econdmg$PROPDMG+econdmg$CROPDMG
+        econdmg$PCT<-econdmg$ECONDMGTOT/sum(econdmg$ECONDMGTOT)*100
+        econdmg<-econdmg[order(-econdmg$ECONDMGTOT),]
+        head(econdmg,10)
+        sum(head(econdmg,10)$PCT)
+    ```
+The top 10 represents roughly 85% of the total amount.
+
+***
+
+## Results
+
+###Types of events (across the United States) most harmful to population health
+
+Tidy up the top 10 amount of human fatalities by Weather Event Type. Plot a bar graph showing the contributors in descending order.
+```{r plothumandmg1, echo=TRUE}
+    dat1<-arrange(head(humandmg[order(-humandmg$FATALITIES),],10),-FATALITIES)
+    dat1$EVTYPE<-factor(dat1$EVTYPE, levels=unique(dat1$EVTYPE))
+
+    dat2<-arrange(head(humandmg[order(-humandmg$INJURIES),],10),-INJURIES)
+    dat2$EVTYPE<-factor(dat2$EVTYPE, levels=unique(dat2$EVTYPE))
+
+    p1<-ggplot(data=dat1) + geom_bar(aes(x=EVTYPE, y=FATALITIES, fill="red"), stat="identity") + theme(axis.text.x=element_text(angle=90, hjust=1, vjust=.25)) + theme(legend.position="none") + ggtitle("Human Fatalities caused by Extreme Weather in the USA\n(Top 10, 1950 - 2011) ") + ylab("Human Fatalities (persons)") + xlab("Weather Event Types")
+    print(p1)
+    dat1
+    ```
+**Looking at the plot and table above, Tornadoes seem to be the largest contributor towards human Fatalities (37% of total), then comes Heat related (18%), Flood (6%), Lightning (5%) and other Weather Events**
+
+Tidy up the top 10 amount of human injuries by Weather Event Type. Plot a bar graph showing the contributors in descending order.
+```{r plothumandmg2, echo=TRUE}
+    p2<-ggplot(data=dat2) + geom_bar(aes(x=EVTYPE, y=INJURIES), fill="orange", stat="identity") + theme(axis.text.x=element_text(angle=90, hjust=1, vjust=.25)) + theme(legend.position="none") + ggtitle("Human Injuries caused by Extreme Weather in the USA\n(Top 10, 1950 - 2011) ") + ylab("Human Injuries (persons)") + xlab("Weather Event Types")
+    print(p2)
+    dat2
+```
+**Looking at the plot and table above, Tornadoes appear to also be the largest contributor towards human Injuries (65% of total), followed by Thunderstorm Winds, Flood and Heat (each between 4%-5%), Lightning (3.7%) and other Weather Events**
+
+###Types of events (across the United States) having the greatest economic consequences
+
+Tidy up the top 10 amount of economic damage (Property + Crops) by Weather Event Type. Plot a bar graph showing the contributors in descending order.
+```{r plotecondmg, echo=TRUE}
+    dat3<-arrange(head(econdmg[order(-econdmg$ECONDMGTOT),],10),-ECONDMGTOT)
+    dat3$EVTYPE<-factor(dat3$EVTYPE, levels=unique(dat3$EVTYPE))
+
+    p3<-ggplot(data=dat3, aes(x=EVTYPE)) + geom_bar(aes(y=ECONDMGTOT/10^9), fill="blue", stat="identity") + theme(axis.text.x=element_text(angle=90, hjust=1, vjust=.25), legend.position="right") + ggtitle("Property and Crop damage caused by Extreme Weather in the USA\n(Top 10, 1950 - 2011) ") + ylab("Damage (USD Billions)") + xlab("Weather Event Types")
+    print(p3)
+    dat3
+```
+**Based on the plot and table above, Flood appears to be the main Weather Event, contributing to over USD 150 billion in damages over the 6 decade duration. It is followed by Hurricane/Typhoon (USD 71.9 billion), Tornadoes (USD 57.4 billion) and Storm Surge (USD 43.3 billion) and other Weather Events (each no more than 4% of the overall total)**
+
+***
+
+## Background & Data
+
+Storms and other severe weather events can cause both public health and economic problems for communities and municipalities. Many severe events can result in fatalities, injuries, and property damage, and preventing such outcomes to the extent possible is a key concern.
+
+This project involves exploring the U.S. National Oceanic and Atmospheric Administration's (NOAA) storm database. This database tracks characteristics of major storms and weather events in the United States, including when and where they occur, as well as estimates of any fatalities, injuries, and property damage.
+
+The data for this assignment come in the form of a comma-separated-value file compressed via the bzip2 algorithm to reduce its size. You can download the file from this [link](https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2)
+
+There is also some documentation of the database available. Here you will find how some of the variables are constructed/defined:
+
+* National Weather Service [Storm Data Documentation](NWService_Storm_Data_Documentation.pdf)
+
+* National Climatic Data Center Storm Events [FAQ](NCDC_Storm_Events_FAQ.pdf)
+
+The events in the database start in the year 1950 and end in November 2011. In the earlier years of the database there are generally fewer events recorded, most likely due to a lack of good records. More recent years should be considered more complete.
+
+***
+
+## Assignment
+
+The basic goal of this assignment is to explore the NOAA Storm Database and answer some basic questions about severe weather events. You must use the database to answer the questions below and show the code for your entire analysis. Your analysis can consist of tables, figures, or other summaries. You may use any R package you want to support your analysis.
+
+<br/>
+
+**Questions**
+
+Your data analysis must address the following questions:
+
+1. Across the United States, which types of events (as indicated in the **EVTYPE** variable) are most harmful with respect to population health?
+2. Across the United States, which types of events have the greatest economic consequences?
+
+Consider writing your report as if it were to be read by a government or municipal manager who might be responsible for preparing for severe weather events and will need to prioritize resources for different types of events. However, there is no need to make any specific recommendations in your report.
+
+<br/>
+
+**Document Layout**
+
+* Language: Your document should be written in English.
+* Title: Your document should have a title that **briefly** summarizes your data analysis
+* Synopsis: Immediately after the title, there should be a **synopsis** which describes and summarizes your analysis in at **most 10 complete sentences**.
+* There should be a section titled **Data Processing** which describes (in words and code) how the data were loaded into R and processed for analysis. In particular, your analysis must start from the raw CSV file containing the data. You cannot do any preprocessing outside the document. If preprocessing is time-consuming you may consider using the **cache = TRUE** option for certain code chunks.
+* There should be a section titled **Results** in which your results are presented.
+* You may have other sections in your analysis, but Data Processing and Results are **required**.
+* The analysis document must have **at least one figure containing a plot**.
+* Your analysis must have **no more than three figures**. Figures may have multiple plots in them (i.e. panel plots), but there cannot be more than three figures total.
+* You must show all your code for the work in your analysis document. This may make the document a bit verbose, but that is okay. In general, you should ensure that **echo = TRUE** for every code chunk (this is the default setting in knitr).
+
+<br/>
+
+**Review Criteria**
+
+1. Has either a (1) valid RPubs URL pointing to a data analysis document for this assignment been submitted; or (2) a complete PDF file presenting the data analysis been uploaded?
+2. Is the document written in English?
+3. Does the analysis include description and justification for any data transformations?
+4. Does the document have a title that briefly summarizes the data analysis?
+5. Does the document have a synopsis that describes and summarizes the data analysis in less than 10 sentences?
+6. Is there a section titled "Data Processing" that describes how the data were loaded into R and processed for analysis?
+7. Is there a section titled "Results" where the main results are presented?
+8. Is there at least one figure in the document that contains a plot?
+9. Are there at most 3 figures in this document?
+10. Does the analysis start from the raw data file (i.e. the original .csv.bz2 file)?
+11. Does the analysis address the question of which types of events are most harmful to population health?
+12. Does the analysis address the question of which types of events have the greatest economic consequences?
+13. Do all the results of the analysis (i.e. figures, tables, numerical summaries) appear to be reproducible?
+14. Do the figure(s) have descriptive captions (i.e. there is a description near the figure of what is happening in the figure)?
+15. As far as you can determine, does it appear that the work submitted for this project is the work of the student who submitted it?
+
