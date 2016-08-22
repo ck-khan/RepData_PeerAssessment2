@@ -149,7 +149,7 @@ Multiply the Property and Crop Damage by its exponentials (of 10). Valid alphabe
     ##      Min.   1st Qu.    Median      Mean   3rd Qu.      Max. 
     ## 0.000e+00 0.000e+00 0.000e+00 1.928e+05 0.000e+00 5.000e+09
     ```
-7. Examine the unique ENTYPE values.
+7. Examine the unique EVTYPE values.
     
     ```r
         unique(stormdata$EVTYPE)
@@ -402,7 +402,7 @@ Multiply the Property and Crop Damage by its exponentials (of 10). Valid alphabe
     ## [487] MARINE HAIL                    FREEZING FOG                  
     ## 488 Levels: TORNADO TSTM WIND HAIL ICE STORM/FLASH FLOOD ... FREEZING FOG
     ```
-The remaining EVTYPE levels (488) are not easily mapped to the 48 types defined in the NWS documentation without resorting to guess work. For the sake of simplicity, this analysis will assume that each of the EVTYPES are unique and will focus on EVTYPES where its composition to the overall amount totals are small or insignificant.
+The remaining EVTYPE levels (488) are not easily mapped to the 48 types defined in the NWS documentation without resorting to guess work. For the sake of simplicity, this analysis will assume that each of the EVTYPES are unique and will not focus on EVTYPES where its composition to the overall amount totals are small or insignificant.
 
 8. Sum and sort (descending) the quantities of Human Fatalities and Injuries by EVTYPE, display the top 10.
     

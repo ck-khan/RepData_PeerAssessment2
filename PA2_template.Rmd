@@ -91,11 +91,11 @@ Multiply the Property and Crop Damage by its exponentials (of 10). Valid alphabe
         summary(stormdata$PROPDMG)
         summary(stormdata$CROPDMG)
     ```
-7. Examine the unique ENTYPE values.
+7. Examine the unique EVTYPE values.
     ```{r evtype, echo=TRUE}
         unique(stormdata$EVTYPE)
     ```
-The remaining EVTYPE levels (488) are not easily mapped to the 48 types defined in the NWS documentation without resorting to guess work. For the sake of simplicity, this analysis will assume that each of the EVTYPES are unique and will focus on EVTYPES where its composition to the overall amount totals are small or insignificant.
+The remaining EVTYPE levels (488) are not easily mapped to the 48 types defined in the NWS documentation without resorting to guess work. For the sake of simplicity, this analysis will assume that each of the EVTYPES are unique and will not focus on EVTYPES where its composition to the overall amount totals are small or insignificant.
 
 8. Sum and sort (descending) the quantities of Human Fatalities and Injuries by EVTYPE, display the top 10.
     ```{r humandmg, echo=TRUE}

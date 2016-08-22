@@ -209,7 +209,7 @@ $(document).ready(function () {
 <pre class="r"><code>    summary(stormdata$CROPDMG)</code></pre>
 <pre><code>##      Min.   1st Qu.    Median      Mean   3rd Qu.      Max. 
 ## 0.000e+00 0.000e+00 0.000e+00 1.928e+05 0.000e+00 5.000e+09</code></pre></li>
-<li><p>Examine the unique ENTYPE values.</p>
+<li><p>Examine the unique EVTYPE values.</p>
 <pre class="r"><code>    unique(stormdata$EVTYPE)</code></pre>
 <pre><code>##   [1] TORNADO                        TSTM WIND                     
 ##   [3] HAIL                           ICE STORM/FLASH FLOOD         
@@ -456,7 +456,7 @@ $(document).ready(function () {
 ## [485] ASTRONOMICAL LOW TIDE          DENSE SMOKE                   
 ## [487] MARINE HAIL                    FREEZING FOG                  
 ## 488 Levels: TORNADO TSTM WIND HAIL ICE STORM/FLASH FLOOD ... FREEZING FOG</code></pre>
-<p>The remaining EVTYPE levels (488) are not easily mapped to the 48 types defined in the NWS documentation without resorting to guess work. For the sake of simplicity, this analysis will assume that each of the EVTYPES are unique and will focus on EVTYPES where its composition to the overall amount totals are small or insignificant.</p></li>
+<p>The remaining EVTYPE levels (488) are not easily mapped to the 48 types defined in the NWS documentation without resorting to guess work. For the sake of simplicity, this analysis will assume that each of the EVTYPES are unique and will not focus on EVTYPES where its composition to the overall amount totals are small or insignificant.</p></li>
 <li><p>Sum and sort (descending) the quantities of Human Fatalities and Injuries by EVTYPE, display the top 10.</p>
 <pre class="r"><code>    humandmg&lt;-aggregate(cbind(FATALITIES, INJURIES) ~ EVTYPE, stormdata, sum)
     humandmg$FATALITIESPCT&lt;-humandmg$FATALITIES/sum(humandmg$FATALITIES)*100
